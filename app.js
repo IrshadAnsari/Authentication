@@ -5,11 +5,16 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require('mongoose');
 const app = express();
-const encrypt=require("mongoose-encryption");
+//const encrypt=require("mongoose-encryption");
+//const md5=require("md5");
+const bcrypt=require("bcrypt");
+const saltRounds=10;
+
 app.set('view engine', 'ejs');
 app.use(express.static("public"));
 
 console.log(process.env.API_KEY);
+
 
 app.use(bodyParser.urlencoded({
   extended: true
@@ -32,8 +37,8 @@ const userSchema=new mongoose.Schema({
   password:String
 });
 
-const secret=process.env.SECRET;
-userSchema.plugin(encrypt,{secret:secret,encryptedFields: ['password']});
+
+//userSchema.plugin(encrypt,{secret:process.env.SECRET,encryptedFields: ['password']});
 
 
 /////user Model ///////////////
@@ -56,12 +61,22 @@ app.post("/login",function(req,res){
       console.log(err);
     }else{
 if(foundUser){
-  if(foundUser.password===password){
-    res.render("secrets");
-  }else{
-    res.render("login");
-    console.log("password does not match , try agian!");
-  }
+  bcrypt.compare(password, foundUser.password, function(err, result) {
+      // result == true
+      if(result === true){
+        res.render("secrets");
+      }else{
+        console.log("Invalid Password");
+        res.render("login");
+      }
+  });
+
+  // if(foundUser.password===password){
+  //   res.render("secrets");
+  // }else{
+  //   res.render("login");
+  //   console.log("password does not match , try agian!");
+  // }
    }
     }
   });
@@ -71,20 +86,26 @@ app.get("/register",function(req,res){
   res.render("register");
 });
 app.post("/register",function(req,res){
-//create new user
-const newUser=new User({
-  email:req.body.username,
-  password:req.body.password
+bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+  //create new user
+  const newUser=new User({
+    email:req.body.username,
+    //password:req.body.password
+  //hash function
+    //password:md5(req.body.password)
+    password:hash
+  });
+  newUser.save(function(err){
+    if(err){
+      console.log(err);
+    }else{
+      res.render("secrets");
+      console.log("registered Successfuly");
+    }
+  });
+  });
 });
-newUser.save(function(err){
-  if(err){
-    console.log(err);
-  }else{
-    res.render("secrets");
-    console.log("registered Successfuly");
-  }
-});
-});
+
 
 app.listen(3000,function(){
   console.log("Server has Started on port 3000");
